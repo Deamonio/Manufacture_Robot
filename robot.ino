@@ -1,42 +1,60 @@
-/*
- * Example showing how to send position commands to AX-12A
- */
-
 #include "Arduino.h"
 #include "AX12A.h"
 
 #define DirectionPin    (10u)
 #define BaudRate        (1000000ul)
-#define ID            (3u)
 
-int initial_pos = 512;
-int max = initial_pos + 100;
-int min = initial_pos - 100;
+#define ID1            (1u)
+#define ID2            (2u)
+#define ID3            (3u)
+#define ID4            (4u)
 
-int pos = initial_pos;
-int delta = 5;
+int mot1Pos = 512;
+int mot2Pos = 512;
+int mot3Pos = 200;
+int mot4Pos = 512;
 
-void setup()
-{
-   ax12a.begin(BaudRate, DirectionPin, &Serial);
+
+
+ 
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(115200);
+  ax12a.begin(BaudRate, DirectionPin, &Serial1);
 }
 
-void loop()
-{
-   pos = pos + delta;
+void loop() {
+  // put your main code here, to run repeatedly:
+  receiveSerial();
+  moveMotor();
+}
 
-   if (pos > max)
-   {
-      pos = max;
-      delta *= -1;
-   }
+void moveMotor() {
+  ax12a.move(ID1, mot1Pos);
+  ax12a.move(ID2, mot2Pos);
+  ax12a.move(ID3, mot3Pos);
+  ax12a.move(ID4, mot4Pos);
 
-   if (pos < min)
-   {
-      pos = min;
-      delta *= -1;
-   }
+  
+  Serial.print(mot1Pos);
+  Serial.print(",");
+  Serial.print(mot2Pos);
+  Serial.print(",");
+  Serial.print(mot3Pos);
+  Serial.print(",");
+  Serial.print(mot4Pos);
+  Serial.println();
+}
 
-   ax12a.move(ID, pos);
-   delay(20);
+void receiveSerial() {
+  if (Serial.available()) {
+    int n1, n2, n3, n4;
+    String packet = Serial.readStringUntil('*');
+    sscanf(packet.c_str(), "%d,%d,%d,%d", &n1, &n2, &n3, &n4); //mot1Pos,mot1Pos,mot1Pos,mot1Pos
+
+    mot1Pos = constrain(n1, 410, 840);
+    mot2Pos = constrain(n2, 50, 940);
+    mot3Pos = constrain(n3, 0, 530);
+    mot4Pos = constrain(n4, 0, 1023);
+  }
 }
