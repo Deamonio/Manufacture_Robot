@@ -19,7 +19,7 @@ from queue import Queue
 class Config:
     """시스템 설정을 관리하는 클래스"""
     # NOTE: /dev/ttyUSB0 대신 사용 환경에 맞는 포트를 지정해야 합니다.
-    PORT = '/dev/ttyUSB0' 
+    PORT = '/dev/ttyACM0' 
     BAUD_RATE = 115200
     SCREEN_WIDTH = 950
     SCREEN_HEIGHT = 615  # 창 높이 재조정 (590 -> 615) - 하단 패널 겹침 방지 및 적절한 여백 확보
@@ -197,11 +197,11 @@ class MotorController:
     def __init__(self):
         self.motors = [
             MotorConfig(0, "Base", 0, 1023, 512),
-            MotorConfig(1, "Shoulder", 512, 960, 512),
-            MotorConfig(2, "Upper_Arm", 30, 1010, 512),
-            MotorConfig(3, "Elbow", 15, 980, 980),
-            MotorConfig(4, "Wrist", 0, 1023, 800),
-            MotorConfig(5, "Hand", 430, 890, 430),
+            MotorConfig(1, "Shoulder", 380, 1023, 380),
+            MotorConfig(2, "Upper_Arm", 512, 1023, 800),
+            MotorConfig(3, "Elbow", 512, 1023, 700),
+            MotorConfig(4, "Wrist", 0, 1023, 512),
+            MotorConfig(5, "Hand", 370, 695, 695),
         ]
         
         self.current_positions = [m.default_pos for m in self.motors]
@@ -230,10 +230,10 @@ class MotorController:
         except FileNotFoundError:
             # 기본 Custom 프리셋
             return {
-                "Custom 1": [512, 600, 400, 800, 512, 430],
-                "Custom 2": [512, 512, 800, 600, 512, 890],
-                "Custom 3": [512, 800, 300, 980, 512, 890],
-                "Custom 4": [512, 512, 512, 956, 800, 430],
+                "Custom 1": [512, 380, 800, 700, 512, 695],
+                "Custom 2": [512, 380, 800, 700, 512, 695],
+                "Custom 3": [512, 380, 800, 700, 512, 695],
+                "Custom 4": [512, 380, 800, 700, 512, 695],
             }
     
     def save_custom_preset(self, slot_index: int):
@@ -250,7 +250,7 @@ class MotorController:
                 # Passivity 모드에서는 즉시 현재 위치 요청
                 self.waiting_for_positions = True
                 self.passivity_presets = []
-                command = f"GetPositions:0,0,0,0,0,0*"
+                command = f"3,0,0,0,0,0,0*" #getpositon
                 self.serial.send(command)
                 print(f"{Colors.YELLOW}[Preset]{Colors.END} Requesting positions for '{preset_name}'...")
                 
@@ -314,10 +314,10 @@ class MotorController:
         Config.PASSIVITY_MODE = not new_state
         if Config.PASSIVITY_MODE:
             self.is_passivity_first = True
-            self.serial.send("PassivityMode:1,1,1,1,1,1*")
+            self.serial.send("2,1,1,1,1,1,1*") #passivity on
         else:
             self.is_passivity_first = False
-            self.serial.send("PassivityMode:0,0,0,0,0,0*")
+            self.serial.send("2,0,0,0,0,0,0*") #passivity off
         
         status = "enabled" if new_state else "disabled"
         print(f"{Colors.YELLOW}[Torque]{Colors.END} ALL motors torque {status}")
@@ -375,18 +375,19 @@ class MotorController:
         if Config.PASSIVITY_MODE:
             return
         positions = [int(pos) for pos in self.target_positions]
-        command = f"Control:{','.join(map(str, positions))}*"
+        command = f"0,{','.join(map(str, positions))}*"
         self.serial.send(command)
     
     def send_torque_command(self):
         """토크 제어 명령 전송"""
         torque_values = [1 if enabled else 0 for enabled in self.torque_enabled]
-        command = f"Torque:{','.join(map(str, torque_values))}*"
+        command = f"1,{','.join(map(str, torque_values))}*"
         self.serial.send(command)
     
     def process_feedback(self):
         """피드백 데이터 처리 (매 프레임 호출)"""
         data = self.serial.get_received_data()
+        print(f"{Colors.CYAN}[RX Positions]{Colors.END} {data}")
         if data:
             try:
                 if data.startswith("Positions:"):
@@ -494,7 +495,7 @@ class DataLogger:
         try:
             with open(self.filename, 'w', newline='') as f:
                 writer = csv.writer(f)
-                writer.writerow(['Timestamp', 'M1_Pos', 'M2_Pos', 'M3_Pos', 'M4_Pos', 'M5_Pos', 'M6_Pos', 'Event'])
+                writer.writerow(['Timestamp:  ','M1_Pos', 'M2_Pos', 'M3_Pos', 'M4_Pos', 'M5_Pos', 'M6_Pos', 'Event'])
             print(f"{Colors.GREEN}[Logger]{Colors.END} Log file created: {self.filename}")
         except Exception as e:
             print(f"{Colors.RED}[Logger Error]{Colors.END} Could not create log file: {e}")
