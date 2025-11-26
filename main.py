@@ -366,22 +366,22 @@ class MotorController:
         """현재 위치를 목표 위치로 부드럽게 이동 (시뮬레이션 + Passivity UI)"""
         
         if not Config.PASSIVITY_MODE:
-            # ✅ 일반 모드: 시뮬레이션 (DEV_MODE) 또는 피드백 수신 대기
-            if Config.DEV_MODE:
-                # 시뮬레이션: current를 target으로 부드럽게 이동
-                for i in range(len(self.motors)):
-                    diff = self.target_positions[i] - self.current_positions[i]
-                    
-                    if abs(diff) > 0.5:
-                        self.velocities[i] = diff * Config.MOTION_SMOOTHNESS
-                        self.current_positions[i] += self.velocities[i]
-                        self.motor_states[i] = MotorState.MOVING
-                    else:
-                        self.current_positions[i] = self.target_positions[i]
-                        self.velocities[i] = 0.0
-                        if self.motor_states[i] == MotorState.MOVING:
-                            self.motor_states[i] = MotorState.IDLE
-            # else: 일반 모드 + 실제 연결 시에는 process_feedback()에서 current_positions 업데이트
+            # ✅ 일반 모드: 항상 부드러운 시뮬레이션 적용 (UI 반응성)
+            for i in range(len(self.motors)):
+                diff = self.target_positions[i] - self.current_positions[i]
+                
+                if abs(diff) > 0.5:
+                    self.velocities[i] = diff * Config.MOTION_SMOOTHNESS
+                    self.current_positions[i] += self.velocities[i]
+                    self.motor_states[i] = MotorState.MOVING
+                else:
+                    self.current_positions[i] = self.target_positions[i]
+                    self.velocities[i] = 0.0
+                    if self.motor_states[i] == MotorState.MOVING:
+                        self.motor_states[i] = MotorState.IDLE
+        
+        # ✅ 실제 연결 시에는 피드백으로 current_positions를 보정
+        # process_feedback()에서 실제 위치 수신 시 current_positions 덮어씀
         else:
             # ✅ Passivity 모드: display_positions를 target_positions로 부드럽게 이동
             for i in range(len(self.motors)):
